@@ -1,0 +1,28 @@
+{
+  "name": "reposcope-api",
+  "private": true,
+  "version": "0.1.0",
+  "description": "OpenAI CodeAct agent loop for RepoScope, running on Spin",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs && mkdir -p dist && j2w -i build/bundle.js --initLocation http://api.localhost -o dist/api.wasm",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@spinframework/spin-variables": "^1.0.1",
+    "@spinframework/wasi-http-proxy": "^2.0.0",
+    "hono": "^4.13.19",
+    "openai": "^7.59.0"
+  },
+  "devDependencies": {
+    "@spinframework/build-tools": "^2.1.3",
+    "esbuild": "^0.25.8",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@bytecodealliance/jco-std": {
+      "minimatch": "^11.0.1"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build output
+api/build/
+api/dist/
+target/
+dist/
+.spin/
+
+# Tooling and OS noise
+.DS_Store
+*.log
+npm-debug.log*
+.idea/
+.vscode/

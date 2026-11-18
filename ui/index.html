@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0f14" />
+    <meta
+      name="description"
+      content="RepoScope is a CodeAct chat agent that examines GitHub repositories by writing and running code in a private Spin WebAssembly sandbox."
+    />
+    <title>RepoScope · GitHub repository analyst</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="boot" class="boot">
+      <div class="boot-mark" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <p>Starting RepoScope…</p>
+    </div>
+
+    <div id="gate" class="gate hidden">
+      <form id="gateForm" class="gate-card">
+        <div class="brand-mark large" aria-hidden="true">R</div>
+        <h1>RepoScope</h1>
+        <p class="gate-sub">This instance is protected. Enter the access token to continue.</p>
+        <label class="sr-only" for="gateToken">Access token</label>
+        <input
+          id="gateToken"
+          class="gate-input"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Access token"
+          required
+        />
+        <button id="gateBtn" class="btn primary wide" type="submit">Continue</button>
+        <p id="gateError" class="gate-error" role="alert"></p>
+      </form>
+    </div>
+
+    <div id="app" class="app hidden">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">R</div>
+          <div class="brand-copy">
+            <h1>RepoScope</h1>
+            <p>CodeAct agent for GitHub repositories</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span id="modelBadge" class="model-badge" title="Inference backend">
+            <span class="dot"></span>
+            <span id="modelText">openai</span>
+          </span>
+          <button id="helpBtn" class="btn ghost" type="button">How it works</button>
+          <button id="newChatBtn" class="btn ghost" type="button">New chat</button>
+        </div>
+      </header>
+
+      <main id="thread" class="thread" aria-live="polite">
+        <section id="welcome" class="welcome">
+          <div class="welcome-inner">
+            <div class="eyebrow">
+              <span class="pulse-dot"></span>
+              Reads the repo, writes the code, checks the evidence
+            </div>
+            <h2>What should we dig into?</h2>
+            <p class="welcome-lede">
+              Ask about any public GitHub repository. The agent fetches the real tree,
+              manifests, docs, and source files, then runs its own JavaScript in a
+              private WebAssembly sandbox to answer from evidence — not guesses.
+            </p>
+
+            <div id="suggestions" class="suggestions"></div>
+
+            <div class="welcome-foot">
+              <span class="key">Enter</span> to send
+              <span class="sep">·</span>
+              <span class="key">Shift + Enter</span> for a new line
+              <span class="sep">·</span>
+              egress limited to GitHub
+            </div>
+          </div>
+        </section>
+
+        <div id="messages" class="messages"></div>
+      </main>
+
+      <footer class="composer">
+        <div class="composer-inner">
+          <div class="composer-box">
+            <textarea
+              id="input"
+              rows="1"
+              placeholder="Ask about a GitHub repository, e.g. “Explain the architecture of spinframework/spin”"
+              aria-label="Message RepoScope"
+            ></textarea>
+            <div class="composer-actions">
+              <button id="stopBtn" class="btn stop hidden" type="button" title="Stop generating">
+                <span class="stop-square"></span>Stop
+              </button>
+              <button id="sendBtn" class="btn primary send" type="button" title="Send (Enter)">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path
+                    d="M4 12 20 4l-3 8 3 8-16-8Z"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linejoin="round"
+                  />
+                  <path d="M4 12h13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+                <span>Send</span>
+              </button>
+            </div>
+          </div>
+          <p class="composer-note">
+            Model-written code runs in a private, isolated Wasm sandbox with no filesystem
+            and no shell. Results can be wrong or incomplete — verify important findings.
+          </p>
+        </div>
+      </footer>
+    </div>
+
+    <div id="helpModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-card">
+        <button id="helpClose" class="modal-close" type="button" aria-label="Close">×</button>
+        <div class="eyebrow"><span class="pulse-dot"></span> The loop</div>
+        <h2 id="helpTitle">How RepoScope works</h2>
+        <p class="modal-lede">
+          RepoScope is a <strong>CodeAct</strong> agent. Instead of choosing from a fixed
+          menu of tools, its action is code: the model writes a JavaScript program, runs it
+          in a real sandbox, observes the output, and repeats until it can answer.
+        </p>
+
+        <ol class="steps">
+          <li>
+            <span class="step-num">1</span>
+            <div>
+              <strong>You ask.</strong>
+              Name a repository and a question — architecture, dependencies, recent
+              changes, testing, licensing, a specific module, or a comparison.
+            </div>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <div>
+              <strong>The model writes code.</strong>
+              It fetches repository metadata and file contents from GitHub, filters the
+              tree, reads manifests and source, and prints compact evidence to stdout.
+            </div>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <div>
+              <strong>A private Wasm sandbox runs it.</strong>
+              The <code>ts-sandbox</code> component is private to this Spin app. It has no
+              filesystem, no shell, no process spawning, and no Node APIs. Egress is
+              allow-listed to <code>api.github.com</code> and
+              <code>raw.githubusercontent.com</code> only.
+            </div>
+          </li>
+          <li>
+            <span class="step-num">4</span>
+            <div>
+              <strong>The output loops back.</strong>
+              stdout, stderr, and errors become the model's observation. It fixes and
+              re-runs, or writes a cited answer from what it actually saw.
+            </div>
+          </li>
+        </ol>
+
+        <div class="diagram" aria-hidden="true">
+          <div class="diagram-node you">You</div>
+          <div class="diagram-arrow">→</div>
+          <div class="diagram-node model">OpenAI<br /><small>writes code</small></div>
+          <div class="diagram-arrow">→</div>
+          <div class="diagram-node sandbox">ts-sandbox<br /><small>runs it</small></div>
+          <div class="diagram-arrow">→</div>
+          <div class="diagram-node answer">Answer</div>
+          <div class="diagram-loop">stdout / stderr fed back</div>
+        </div>
+
+        <div class="help-grid">
+          <div>
+            <h3>Why code?</h3>
+            <p>
+              One program can fetch, parse, filter, count, and compare in a single step.
+              That means fewer round-trips and answers computed from real data instead of
+              guessed by the model.
+            </p>
+          </div>
+          <div>
+            <h3>What it can't do</h3>
+            <p>
+              It cannot access private repositories, authenticate to GitHub, read your
+              machine, or reach arbitrary hosts. Unauthenticated GitHub API calls are rate
+              limited, so very broad questions may stop early.
+            </p>
+          </div>
+        </div>
+
+        <p class="modal-refs">
+          Built with
+          <a href="https://spinframework.dev" target="_blank" rel="noopener noreferrer">Spin</a>,
+          the
+          <a href="https://github.com/spinframework/spin-code-sandbox" target="_blank" rel="noopener noreferrer">Spin Code Sandbox</a>,
+          and the <a href="https://arxiv.org/abs/2402.01030" target="_blank" rel="noopener noreferrer">CodeAct</a>
+          pattern.
+        </p>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" role="status"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

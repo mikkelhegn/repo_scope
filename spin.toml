@@ -1,0 +1,81 @@
+spin_manifest_version = 2
+
+[application]
+name = "reposcope"
+version = "0.1.0"
+authors = ["RepoScope"]
+description = "A CodeAct chat agent that examines GitHub repositories by writing and running JavaScript in a private Spin WebAssembly sandbox."
+
+[variables]
+# OpenAI API key. Set it with SPIN_VARIABLE_OPENAI_API_KEY=sk-...
+openai_api_key = { default = "", secret = true }
+# Origin only (no path). The API appends /v1 and uses Chat Completions.
+openai_base_url = { default = "https://api.akamai-inference.com" }
+# Any OpenAI Chat Completions model that supports tool calling.
+model = { default = "deepseek-v4.1-flash" }
+# Private, service-chained interpreter component.
+ts_sandbox_url = { default = "http://ts-sandbox.spin.internal" }
+# Optional shared token that gates the UI and API. Empty = open (local development).
+access_token = { default = "", secret = true }
+log_level = { default = "info" }
+max_turns = { default = "10" }
+
+# ---------------------------------------------------------------------------
+# Public UI: a static single-page chat, served by Spin's fileserver.
+# ---------------------------------------------------------------------------
+[[trigger.http]]
+route = "/..."
+component = "ui"
+
+[component.ui]
+source = { url = "https://github.com/fermyon/spin-fileserver/releases/download/v0.3.0/spin_static_fs.wasm", digest = "sha256:ef88708817e107bf49985c7cefe4dd1f199bf26f6727819183d5c996baa3d148" }
+files = [{ source = "ui", destination = "/" }]
+environment = { FALLBACK_PATH = "index.html" }
+
+# ---------------------------------------------------------------------------
+# Public API: the OpenAI tool loop that drives the sandbox.
+# ---------------------------------------------------------------------------
+[[trigger.http]]
+route = "/api/..."
+component = "api"
+
+[component.api]
+source = "api/dist/api.wasm"
+allowed_outbound_hosts = [
+  "{{ openai_base_url }}",
+  "http://ts-sandbox.spin.internal",
+]
+[component.api.variables]
+openai_api_key = "{{ openai_api_key }}"
+openai_base_url = "{{ openai_base_url }}"
+model = "{{ model }}"
+ts_sandbox_url = "{{ ts_sandbox_url }}"
+access_token = "{{ access_token }}"
+log_level = "{{ log_level }}"
+max_turns = "{{ max_turns }}"
+[component.api.build]
+command = "npm install && npm run build"
+workdir = "api"
+
+# ---------------------------------------------------------------------------
+# Private interpreter: the Spin Code Sandbox ts-sandbox component.
+#
+# It has no public route. Only the api component can reach it, via
+# http://ts-sandbox.spin.internal service chaining. Model-written code runs
+# here with no filesystem, no shell, no KV, and egress limited to GitHub.
+# ---------------------------------------------------------------------------
+[[trigger.http]]
+route = { private = true }
+component = "ts-sandbox"
+
+[component.ts-sandbox]
+# Pinned canary build of spinframework/spin-code-sandbox. Replace with a
+# locally built packages/typescript/sandbox/dist/ts-sandbox.wasm if you prefer.
+source = { url = "https://github.com/spinframework/spin-code-sandbox/releases/download/canary/ts-sandbox.wasm", digest = "sha256:5c815217be184d01ad9b1697273ae41dba22c8d1bb6fd47d831a2ebaf04fe30b" }
+key_value_stores = ["default"]
+allowed_outbound_hosts = [
+  "https://api.github.com",
+  "https://raw.githubusercontent.com",
+]
+[component.ts-sandbox.variables]
+log_level = "{{ log_level }}"
